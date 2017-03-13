@@ -22,8 +22,11 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 
-# TODO: Try decaying exploration factor
 # TODO: measure impact of replay factor resetting
+# TODO: implement replay buffer as a double ended queue (colections::dequeue)
+# TODO: implement prioratized experience replay
+# TODO: Allow multi-layer MLPs
+# TODO: Try "target" network
 
 
 def get_model(hidden_size, num_actions, space_shape):
