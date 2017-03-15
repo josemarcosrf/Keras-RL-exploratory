@@ -20,7 +20,7 @@ from keras.layers import (Dense, Input, Dropout, Lambda)
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
 # TODO: implement prioratized experience replay
@@ -54,8 +54,9 @@ def get_dueling_model(hidden_size, num_actions, space_shape, mode):
         Takes an observation from the environment and outputs a Q value per action
     """
     inp = Input(shape=space_shape)
+    h = Dense(hidden_size//2, activation="relu")(inp)
+    h = Dropout(p=0.25)(h)
     h = Dense(hidden_size, activation="relu")(inp)
-    # h = Dropout(p=0.25)(h)
     y = Dense(num_actions + 1)(h)
     if mode == 'avg':
         z = Lambda(lambda a: K.expand_dims(a[:, 0], dim=-1) + a[:, 1:] - K.mean(a[:, 1:], keepdims=True),
@@ -76,18 +77,18 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument('env', default='CartPole-v0', help="GYM Environment")
-    parser.add_argument('--batch_size', type=int, default=100)
-    parser.add_argument('--hidden_size', type=int, default=150)
-    parser.add_argument('--replay_size', type=int, default=100)
-    parser.add_argument('--train_repeat', type=int, default=10)
-    parser.add_argument('--gamma', type=float, default=0.99, help="reward discount factor")
+    parser.add_argument('--batch_size', type=int, default=10)
+    parser.add_argument('--hidden_size', type=int, default=100)
+    parser.add_argument('--replay_size', type=int, default=10000)
+    parser.add_argument('--train_repeat', type=int, default=4)
+    parser.add_argument('--gamma', type=float, default=0.95, help="reward discount factor")
     parser.add_argument('--lr', type=float, default=1e-3, help="learning rate")
-    parser.add_argument('--epsilon', type=float, default=0.1, help="Exploration probability")
-    parser.add_argument('--exploration_decay', type=float, default=1e-5)
-    parser.add_argument('--max_episodes', type=int, default=200)
+    parser.add_argument('--epsilon', type=float, default=0.15, help="Exploration probability")
+    parser.add_argument('--exploration_decay', type=float, default=0.01)
+    parser.add_argument('--max_episodes', type=int, default=10000)
     parser.add_argument('--nn_mode', default="max", help="aggregation mode for dueling network or MLP")
     parser.add_argument('--model_path', default="cart-pole-mlp")
-    parser.add_argument('--render', type=float, default=100, help="minimum avg reward to start rendering")
+    parser.add_argument('--render', type=float, default=-200, help="minimum avg reward to start rendering")
     args = parser.parse_args()
 
     # check coherence of arguments
@@ -135,7 +136,7 @@ if __name__ == "__main__":
 
     observation = env.reset()   # Obtain an initial observation of the environment
     while episode_number <= args.max_episodes:
-        if avg_reward > args.render: 
+        if avg_reward >= args.render: 
             env.render()
         
         # epsilon-greedy policy
@@ -173,9 +174,10 @@ if __name__ == "__main__":
                     if terminal[idx]:   # there's no post_state, i.e: s_(t+1), as the episode finished
                         q_pre_states[i, actions[idx]] = np.array(rewards)[idx]
                     else:
-                        q_pre_states[i, actions[idx]] = (np.array(rewards)[idx] + args.gamma * np.max(q_post_states[i]))
+                        q_pre_states[i, actions[idx]] = np.array(rewards)[idx] + args.gamma * np.max(q_post_states[i])
 
                 # train model
+                logger.debug("episode: {} - {}th training on batch".format(episode_number, k))
                 model.train_on_batch(np.array(pre_states)[sample_idx], q_pre_states)
 
         # end of the episode   
