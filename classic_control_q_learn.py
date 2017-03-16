@@ -20,19 +20,21 @@ from keras.layers import (Dense, Input, Dropout, Lambda)
 
 logging.basicConfig()
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
+logger.setLevel(logging.INFO)
 
 
-# TODO: implement prioratized experience replay
+# TODO: Implement prioratized experience replay
 # TODO: Allow multi-layer MLPs
 # TODO: Try "target" network
+# TODO: Add tensorboard summaries
+# TODO: Add a more clever check-pointing
 
 
 def check_args(args):
     avail_envs = [e.id for e in envs.registry.all()]
     if args.env not in avail_envs:
         logger.error("{} is not a valid env".format(args.env))
-        raise ValueError("env must be one of: {}".format(pprint.pformat(sorted(avail_envs))))
+        raise ValueError("env must be one of:\n{}".format(pprint.pformat(sorted(avail_envs))))
 
 
 def get_model(hidden_size, num_actions, space_shape):
@@ -88,6 +90,7 @@ if __name__ == "__main__":
     parser.add_argument('--nn_mode', default="max", help="aggregation mode for dueling network or MLP")
     parser.add_argument('--model_path', default="cart-pole-mlp")
     parser.add_argument('--render', type=float, default=100, help="minimum avg reward to start rendering")
+    parser.add_argument('--save_every', type=float, default=100, help="save model every num-episodes")
     args = parser.parse_args()
 
     # check coherence of arguments
@@ -135,7 +138,7 @@ if __name__ == "__main__":
 
     observation = env.reset()   # Obtain an initial observation of the environment
     while episode_number <= args.max_episodes:
-        if avg_reward > args.render: 
+        if avg_reward >= args.render: 
             env.render()
         
         # epsilon-greedy policy
@@ -173,9 +176,10 @@ if __name__ == "__main__":
                     if terminal[idx]:   # there's no post_state, i.e: s_(t+1), as the episode finished
                         q_pre_states[i, actions[idx]] = np.array(rewards)[idx]
                     else:
-                        q_pre_states[i, actions[idx]] = (np.array(rewards)[idx] + args.gamma * np.max(q_post_states[i]))
+                        q_pre_states[i, actions[idx]] = np.array(rewards)[idx] + args.gamma * np.max(q_post_states[i])
 
                 # train model
+                logger.debug("episode: {} - {}th training on batch".format(episode_number, k))
                 model.train_on_batch(np.array(pre_states)[sample_idx], q_pre_states)
 
         # end of the episode   
@@ -191,6 +195,10 @@ if __name__ == "__main__":
             episode_number += 1
             exploration_factor /= (1.0 + args.exploration_decay)
             observation = env.reset()
+
+            if episode_number % args.save_every == 0:
+                logger.info("saving model as {}".format(args.model_path))
+                model.save(args.model_path)
 
 
 logger.info("Average reward per episode {}".format(total_reward / args.max_episodes))
