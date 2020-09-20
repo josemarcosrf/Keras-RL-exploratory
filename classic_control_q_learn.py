@@ -60,13 +60,13 @@ def get_dueling_model(hidden_size, num_actions, space_shape, mode):
     # h = Dropout(p=0.25)(h)
     y = Dense(num_actions + 1)(h)
     if mode == 'avg':
-        z = Lambda(lambda a: K.expand_dims(a[:, 0], dim=-1) + a[:, 1:] - K.mean(a[:, 1:], keepdims=True),
+        z = Lambda(lambda a: K.expand_dims(a[:, 0], axis=-1) + a[:, 1:] - K.mean(a[:, 1:], keepdims=True),
                    output_shape=(A,))(y)
     elif mode == 'max':
-        z = Lambda(lambda a: K.expand_dims(a[:, 0], dim=-1) + a[:, 1:] - K.max(a[:, 1:], keepdims=True),
+        z = Lambda(lambda a: K.expand_dims(a[:, 0], axis=-1) + a[:, 1:] - K.max(a[:, 1:], keepdims=True),
                    output_shape=(A,))(y)
     elif mode == 'naive':
-        z = Lambda(lambda a: K.expand_dims(a[:, 0], dim=-1) + a[:, 1:], output_shape=(num_actions,))(y)
+        z = Lambda(lambda a: K.expand_dims(a[:, 0], axis=-1) + a[:, 1:], output_shape=(num_actions,))(y)
     else:
         raise ValueError("Invalid mode: {} ".format(mode))
     model = Model(input=inp, output=z)
@@ -110,9 +110,9 @@ if __name__ == "__main__":
 
     # define and maybe load model
     if args.nn_mode == "mlp":
-        model = get_model(args.hidden_size,A, D)
+        model = get_model(args.hidden_size, A, D)
     else:
-        model = get_dueling_model(args.hidden_size,A, D, mode=args.nn_mode)
+        model = get_dueling_model(args.hidden_size, A, D, mode=args.nn_mode)
 
     # load model if exists
     if os.path.exists(args.model_path):
@@ -138,9 +138,9 @@ if __name__ == "__main__":
 
     observation = env.reset()   # Obtain an initial observation of the environment
     while episode_number <= args.max_episodes:
-        if avg_reward >= args.render: 
+        if avg_reward >= args.render:
             env.render()
-        
+
         # epsilon-greedy policy
         if np.random.uniform() < exploration_factor:
             action = np.random.randint(A)
@@ -182,7 +182,7 @@ if __name__ == "__main__":
                 logger.debug("episode: {} - {}th training on batch".format(episode_number, k))
                 model.train_on_batch(np.array(pre_states)[sample_idx], q_pre_states)
 
-        # end of the episode   
+        # end of the episode
         if done:
             total_reward += episode_reward
             avg_reward = total_reward / episode_number
