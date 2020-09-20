@@ -1,1 +1,6 @@
+# python files
 *.pyc
+__pycache__
+
+*-experiment-*/
+RL\ theory/
